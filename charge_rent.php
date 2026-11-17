@@ -1,0 +1,9 @@
+<?php // Run daily via cron/Task Scheduler: php charge_rent.php  (rent due on the 5th)
+require 'config.php';$per=date('Y-m-01');
+q("INSERT IGNORE INTO rent_charges(lease_id,period,amount,due_date) SELECT lease_id,?,rent_amount,DATE_ADD(?,INTERVAL 4 DAY) FROM leases WHERE status='active' AND start_date<=LAST_DAY(?)",[$per,$per,$per]);
+q("INSERT INTO notifications(user_id,message,type,date_sent) SELECT t.user_id,CONCAT('Rent of KES ',FORMAT(c.amount,0),' for ',DATE_FORMAT(c.period,'%M %Y'),' is due on ',DATE_FORMAT(c.due_date,'%d %b')),'rent_due',NOW() FROM rent_charges c JOIN leases l ON l.lease_id=c.lease_id JOIN tenants t ON t.tenant_id=l.tenant_id WHERE c.period=? AND NOT EXISTS(SELECT 1 FROM notifications n WHERE n.user_id=t.user_id AND n.type='rent_due' AND n.message LIKE CONCAT('%',DATE_FORMAT(c.period,'%M %Y'),'%'))",[$per]);
+function nudge($uid,$type,$msg,$days){if(q("SELECT 1 FROM notifications WHERE user_id=? AND type=? AND ".($days?"date_sent>DATE_SUB(NOW(),INTERVAL $days DAY)":"message=?"),$days?[$uid,$type]:[$uid,$type,$msg])->fetch())return;q("INSERT INTO notifications(user_id,message,type,date_sent) VALUES(?,?,?,NOW())",[$uid,$msg,$type]);}
+foreach(q("SELECT user_id FROM users WHERE role='landlord'") as $ll)foreach(arrears($ll['user_id']) as $a){
+ $uid=q('SELECT t.user_id FROM leases l JOIN tenants t ON t.tenant_id=l.tenant_id WHERE l.lease_id=?',[$a['lease_id']])->fetch()['user_id'];
+ if($a['balance']>0&&$a['days']>0)nudge($uid,'overdue',"Reminder: KES ".number_format($a['balance'])." is overdue by {$a['days']} days. Please pay as soon as you can.",7);
+ elseif($a['balance']>0){$d=q('SELECT MIN(due_date) d FROM rent_charges WHERE lease_id=? AND due_date=DATE_ADD(CURDATE(),INTERVAL 2 DAY)',[$a['lease_id']])->fetch()['d'];if($d)nudge($uid,'due_soon',"Reminder: rent of KES ".number_format($a['balance'])." is due on $d",0);}}

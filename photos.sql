@@ -1,0 +1,2 @@
+USE rms;
+ALTER TABLE units ADD photo VARCHAR(60) NULL;

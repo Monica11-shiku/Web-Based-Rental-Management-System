@@ -1,0 +1,2 @@
+USE rms;
+ALTER TABLE units ADD video VARCHAR(60) NULL;

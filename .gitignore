@@ -1,0 +1,16 @@
+
+# Sensitive configuration files
+config.php
+mpesa_config.php
+.env
+
+# Tenant uploads and private files
+uploads/*
+
+# Temporary files
+*.log
+*.tmp
+
+# Operating system files
+.DS_Store
+Thumbs.db
